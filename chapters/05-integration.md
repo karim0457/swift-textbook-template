@@ -365,16 +365,39 @@ struct RecordDetailView: View {
 
 ```swift
 // 該当部分のコードを抜粋して貼る
+@Model
+class PhotoRecord {
+    var title: String
+    var memo: String
+    var latitude: Double
+    var longitude: Double
+    var imageData: Data?
+    var createdAt: Date
+
+    init(title: String, memo: String = "", latitude: Double, longitude: Double, imageData: Data? = nil) {
+        self.title = title
+        self.memo = memo
+        self.latitude = latitude
+        self.longitude = longitude
+        self.imageData = imageData
+        self.createdAt = .now
+    }
+
+    var coordinate: CLLocationCoordinate2D {
+        CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+}
 ```
 
 **何をしているか：**
-（この部分が果たしている役割を説明する）
+このコードは、写真の記録を保存するためのデータモデルを定義している。
+タイトル、メモ、緯度、経度、画像データ、作成日時を1つのデータとして管理している。
 
 **なぜこう書くのか：**
-（別の書き方ではなく、この書き方が選ばれている理由を説明する）
+写真の情報をまとめて管理するためである。
 
 **もしこう書かなかったら：**
-（この部分を省略したり変えたりすると何が起きるか。実際に試した結果があればここに書く）
+@Modelを付けなかった場合、SwiftDataにデータを保存できなくなり、アプリを終了すると記録した内容が消えてしまう。
 
 ---
 
@@ -382,81 +405,172 @@ struct RecordDetailView: View {
 
 ```swift
 // 該当部分のコードを抜粋して貼る
+struct ContentView: View {
+    var body: some View {
+        TabView {
+            MapTab()
+                .tabItem {
+                    Label("マップ", systemImage: "map")
+                }
+
+            ListTab()
+                .tabItem {
+                    Label("一覧", systemImage: "list.bullet")
+                }
+        }
+    }
+}
 ```
 
 **何をしているか：**
-
+このコードはアプリの画面構成を定義している。
 **なぜこう書くのか：**
-
+地図表示と一覧表示は目的が異なるため、それぞれを別の画面として管理した方が使いやすいからである。
 **もしこう書かなかったら：**
-
+TabViewを使わなかった場合、地図画面と一覧画面を切り替えるために別の画面遷移を作成する必要があり、操作が複雑になる。
 ---
 
 ### カメラと位置情報の連携
 
 ```swift
 // 該当部分のコードを抜粋して貼る
+@Observable
+class LocationManager: NSObject, CLLocationManagerDelegate {
+    private let manager = CLLocationManager()
+    var currentLocation: CLLocationCoordinate2D?
+
+    override init() {
+        super.init()
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyBest
+        manager.requestWhenInUseAuthorization()
+        manager.startUpdatingLocation()
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        currentLocation = locations.last?.coordinate
+    }
+}
+@State private var selectedItem: PhotosPickerItem?
+@State private var selectedImageData: Data?
+
+PhotosPicker(selection: $selectedItem, matching: .images) {
+    Label("写真を選択", systemImage: "photo")
+}
+func saveRecord() {
+    guard let location = locationManager.currentLocation else { return }
+
+    let record = PhotoRecord(
+        title: title,
+        memo: memo,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        imageData: selectedImageData
+    )
+
+    modelContext.insert(record)
+    dismiss()
+}
 ```
 
 **何をしているか：**
-
+このコードは、写真と位置情報を組み合わせて保存する機能を実現している。
 **なぜこう書くのか：**
-
+このアプリの目的は「写真を場所と一緒に記録すること」であるため、写真だけでなく位置情報も同時に取得する必要がある。
 **もしこう書かなかったら：**
-
+位置情報を取得しなかった場合、写真は保存できても撮影場所を記録できないため、地図上に表示することができなくなる。
 ---
 
 ### SwiftDataでの画像保存
 
 ```swift
 // 該当部分のコードを抜粋して貼る
+@Model
+class PhotoRecord {
+    var title: String
+    var memo: String
+    var latitude: Double
+    var longitude: Double
+    var imageData: Data?
+    var createdAt: Date
+
+    init(title: String, memo: String = "", latitude: Double, longitude: Double, imageData: Data? = nil) {
+        self.title = title
+        self.memo = memo
+        self.latitude = latitude
+        self.longitude = longitude
+        self.imageData = imageData
+        self.createdAt = .now
+    }
+}if let data = try? await newItem?.loadTransferable(type: Data.self) {
+    selectedImageData = data
+}let record = PhotoRecord(
+    title: title,
+    memo: memo,
+    latitude: location.latitude,
+    longitude: location.longitude,
+    imageData: selectedImageData
+)
+
+modelContext.insert(record)
+var uiImage: UIImage? {
+    guard let data = imageData else { return nil }
+    return UIImage(data: data)
+}
 ```
 
 **何をしているか：**
-
+このコードは、選択した写真をSwiftDataに保存し、後で表示できるようにしている。
 **なぜこう書くのか：**
-
+SwiftDataは画像そのものを直接保存することができないため、画像をData型に変換して保存する必要がある。
 **もしこう書かなかったら：**
-
+画像データを保存しなかった場合、アプリを再起動したときに写真が消えてしまい、タイトルや位置情報だけが残ることになる。
 ---
 
 （必要に応じてセクションを増やす）
 
 ## 新しく学んだSwiftの文法・API
 
-| 項目 | 説明 | 使用例 |
-|------|------|--------|
-| 例：`TabView` | 複数のビューをタブで切り替えるコンポーネント | `TabView { ... }.tabViewStyle(.page)` |
-| 例：`CLLocationManager` | GPS位置情報を取得するAPIManager | `let location = manager.location?.coordinate` |
-| | | |
-| | | |
-| | | |
+項目	説明	使用例
+@Model	SwiftDataでデータを保存するためのモデルを定義する	@Model class PhotoRecord { ... }
+@Query	SwiftDataから保存済みデータを自動取得する	@Query private var records: [PhotoRecord]
+@Environment(\.modelContext)	SwiftDataの保存・削除処理を行うためのコンテキストを取得する	@Environment(\.modelContext) private var modelContext
+TabView	複数の画面をタブで切り替えるUIコンポーネント	TabView { MapTab(); ListTab() }
+Map	地図を表示するMapKitのビュー	Map(position: $cameraPosition)
+Annotation	地図上に独自デザインのピンを表示する	Annotation(record.title, coordinate: record.coordinate)
 
 ## 自分の実験メモ
 
 （模範コードを改変して試したことを書く）
 
 **実験1：**
-- やったこと：
-- 結果：
-- わかったこと：
+- やったこと：写真を選択せずにタイトルだけ入力して記録を保存してみた。
+- 結果：記録は正常に保存されたが、一覧画面には写真が表示されず、地図上ではデフォルトの写真アイコンが表示された。
+- わかったこと：このアプリでは写真は必須ではなく、画像データがない場合でも記録を保存できるようになっている。また、画像がない場合の表示もあらかじめ用意されていることが分かった。
 
 **実験2：**
-- やったこと：
-- 結果：
-- わかったこと：
+- やったこと：異なる場所で複数の記録を保存し、地図上のピンの表示を確認した。
+- 結果：保存した場所ごとにピンが表示され、それぞれのピンをタップすると詳細画面を開くことができた。
+- わかったこと：保存時に緯度・経度が正しく記録されており、MapKitとSwiftDataが連携して動作していることを確認できた。
 
 ## AIに聞いて特に理解が深まった質問 TOP3
 
-1. **質問：**
-   **得られた理解：**
+1. **質問：**SwiftDataの @Model を付けると何が起きるのか？
+   **得られた理解：**@Model を付けることで、そのクラスをSwiftDataが管理するデータとして認識し、自動的に保存や読み込みができるようになることを理解した。
 
-2. **質問：**
+2. **質問：**なぜ画像は UIImage のまま保存せず、Data型に変換して保存するのか？
+   
    **得られた理解：**
+SwiftDataはUIImageを直接保存できないため、画像をData型に変換して保存する必要があることを学んだ。
+保存時はData型、表示時はUIImageに戻すことで、アプリを再起動しても画像を保持できる仕組みを理解できた。
 
-3. **質問：**
+4. **質問：**
    **得られた理解：**
 
 ## この章のまとめ
 
-（この章で学んだ最も重要なことを、未来の自分が読み返したときに役立つように書く）
+（この章では、これまで学習した SwiftUI・MapKit・SwiftData・PhotosPicker・位置情報取得 を組み合わせて、写真と位置情報を保存できるフォトマップアプリを作成した。
+
+特に重要だと感じたのは、SwiftDataを利用したデータ保存機能である。@Modelや@Queryを使うことで、データの保存や表示を簡単に実装できることを学んだ。また、画像をData型として保存する方法や、保存したデータを一覧画面や地図画面で利用する流れも理解できた。
+
+さらに、MapKitを使って位置情報を地図上に表示したり、CLLocationManagerで現在地を取得したりすることで、アプリと現実世界の位置情報を連携させる方法を学んだ。）
